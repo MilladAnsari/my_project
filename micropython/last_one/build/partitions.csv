@@ -1,0 +1,20 @@
+# ESP-IDF partition table for ESP32-S3-WROOM-1-N16R8 (16MB flash).
+# Sized generously since 16MB gives ample headroom versus the 2MB module
+# used in the prior port attempt -- the app partition alone here is larger
+# than that module's ENTIRE flash.
+#
+# NOT currently wired into build/build_firmware.sh: lvgl_micropython's
+# build system auto-generates its own partition table from --flash-size
+# rather than accepting this file directly (confirmed during Phase 1
+# bring-up -- the real built firmware's app partition ended up ~2.9MB,
+# close to but not exactly this file's 0x300000/3MB `factory` size, and
+# is already down to a few hundred bytes free). Revisit once firmware
+# size becomes a real constraint (see build_firmware.sh's "Known
+# limitations" section) -- likely via lvgl_micropython's
+# `--custom-board-path`/`--toml` mechanism rather than this raw CSV.
+#
+# Name,     Type, SubType, Offset,   Size,     Flags
+nvs,        data, nvs,     0x9000,   0x6000,
+phy_init,   data, phy,     0xf000,   0x1000,
+factory,    app,  factory, 0x10000,  0x300000,
+vfs,        data, fat,     0x310000, 0xCF0000,

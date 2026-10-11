@@ -1,0 +1,10 @@
+{
+  "default": "INFO",
+  "main": "INFO",
+  "config_loader": "INFO",
+  "storage": "INFO",
+  "gateway_service": "INFO",
+  "can_connector": "DEBUG",
+  "mqtt_connector": "INFO",
+  "gui": "WARNING"
+}

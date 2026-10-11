@@ -1,0 +1,7 @@
+# Host-side (desktop) development/testing dependencies.
+# Nothing here runs ON the ESP32-S3 -- MicroPython firmware has its own
+# module set (see build/build_firmware.sh for the firmware build itself).
+
+pytest>=7.0          # for tests/host/
+mpremote>=1.20        # deploying config/ and src/ to the device, REPL access
+esptool>=4.0           # flashing firmware built by build/build_firmware.sh

@@ -1,0 +1,91 @@
+From: tbgw_esp32 build
+Subject: [PATCH] rgb_bus: fix lost-wakeup deadlock and GIL-holding flush wait
+
+Two defects in lvgl_micropython's ESP32 RGB display driver, both found
+while debugging whole-system freezes on a Waveshare ESP32-S3-Touch-LCD-5B
+(1024x600 RGB panel) during Phase 5 GUI bring-up.
+
+1. Lost-wakeup race in rgb_bus_copy_task() (rgb_bus_rotation.c).
+   The task called esp_lcd_panel_draw_bitmap() -- which triggers the
+   framebuffer swap -- and only THEN cleared `swap_bufs` before waiting
+   on it. If the on_vsync ISR fired in that window it set `swap_bufs`,
+   the clear promptly wiped it, and the ISR would not set it again
+   because its guard (curr_buf != active_fb) was no longer true. The
+   subsequent rgb_bus_event_wait() then blocked forever. Fixed by
+   clearing the event BEFORE arming the swap.
+
+   Symptom: display freezes after a burst of partial flushes (LVGL
+   widget animations are a reliable trigger), more likely at higher
+   pixel clocks since vsync fires more often.
+
+2. rgb_tx_color() held the MicroPython GIL across an unbounded lock
+   acquire (rgb_bus.c). Because (1) could stall the copy task forever,
+   the next LVGL flush blocked on tx_color_lock while holding the GIL,
+   which froze EVERY Python thread in the process -- GUI, asyncio event
+   loop and a separate CAN thread alike -- with no exception, no
+   traceback, and no recovery short of a physical power cycle. Fixed by
+   releasing the GIL around the acquire, so a display stall degrades to
+   a stalled display rather than a dead system.
+
+--- a/b/ext_mod/lcd_bus/esp32_src/rgb_bus.c	2026-09-05 21:15:15.740672405 +0330
++++ b/ext_mod/lcd_bus/esp32_src/rgb_bus.c	2026-09-05 21:15:48.988051861 +0330
+@@ -26,6 +26,7 @@
+     #include "mphalport.h"
+     #include "py/obj.h"
+     #include "py/runtime.h"
++    #include "py/mpthread.h"
+     #include "py/objarray.h"
+     #include "py/binary.h"
+     #include "py/objint.h"
+@@ -439,8 +440,19 @@
+         LCD_UNUSED(color_size);
+ 
+         mp_lcd_rgb_bus_obj_t *self = (mp_lcd_rgb_bus_obj_t *)obj;
+-        
++
++        /* tbgw patch: this is LVGL's flush callback, reached from Python,
++         * so the GIL is held here. The acquire below is an UNBOUNDED wait
++         * on the background copy task. Holding the GIL across it means a
++         * stalled copy task does not merely stop the display -- it freezes
++         * every Python thread in the process (GUI, asyncio gateway loop,
++         * CAN thread) with no traceback and no soft-reset recovery, which
++         * is what made this so hard to diagnose. Releasing the GIL first
++         * keeps the rest of the system alive and debuggable even if the
++         * display pipeline stalls again for some other reason. */
++        MP_THREAD_GIL_EXIT();
+         rgb_bus_lock_acquire(&self->tx_color_lock, -1);
++        MP_THREAD_GIL_ENTER();
+ 
+         self->last_update = (uint8_t)last_update;
+         self->partial_buf = (uint8_t *)color;
+--- a/b/ext_mod/lcd_bus/esp32_src/rgb_bus_rotation.c	2026-09-05 21:15:15.742327684 +0330
++++ b/ext_mod/lcd_bus/esp32_src/rgb_bus_rotation.c	2026-09-05 21:15:15.764660094 +0330
+@@ -264,6 +264,8 @@
+             }
+ 
+             if (last_update) {
++                /* tbgw patch: clear BEFORE arming the swap (see below). */
++                rgb_bus_event_clear(&self->swap_bufs);
+                 mp_lcd_err_t ret = esp_lcd_panel_draw_bitmap(
+                     self->panel_handle,
+                     0,
+@@ -276,7 +278,18 @@
+                 if (ret != 0) {
+                     mp_printf(&mp_plat_print, "esp_lcd_panel_draw_bitmap error (%d)\n", ret);
+                 } else {
+-                    rgb_bus_event_clear(&self->swap_bufs);
++                    /* tbgw patch: swap_bufs is cleared BEFORE draw_bitmap
++                     * below, not here. Clearing it here was a lost-wakeup
++                     * race: draw_bitmap triggers the buffer swap, and the
++                     * on_vsync ISB can fire and set swap_bufs before this
++                     * clear ran -- wiping the only notification we will
++                     * ever get, because the ISR's guard
++                     * (curr_buf != self->active_fb) is false once the swap
++                     * has already been accounted for. The wait below then
++                     * blocked forever, the copy task never released
++                     * tx_color_lock, and the next LVGL flush blocked in
++                     * rgb_tx_color() holding the MicroPython GIL -- taking
++                     * down every thread in the process. */
+                     rgb_bus_event_wait(&self->swap_bufs);
+                     memcpy(self->idle_fb, self->active_fb, self->width * self->height * bytes_per_pixel);
+                 }

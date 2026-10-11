@@ -1,0 +1,36 @@
+NOTICE
+======
+
+This repository's own source (src/, tests/, config/, docs/, build/) is
+licensed under the Apache License 2.0 -- see LICENSE.
+
+The firmware build process (build/build_firmware.sh) vendors third-party
+components that are NOT part of this repository and are NOT covered by
+its license. Each has its own license, which this project has not
+independently re-verified beyond what's noted below -- **confirm each
+license is acceptable for your use case before building/distributing
+firmware**, per the caution already raised in this project's own
+architecture analysis (docs/architecture.md).
+
+- **straga/micropython-esp32-twai** (github.com/straga/micropython-esp32-twai)
+  -- vendored as a USER_C_MODULES component providing TWAI/CAN support.
+  Check its repository for the current license file.
+
+- **lvgl_micropython** (github.com/lvgl-micropython/lvgl_micropython)
+  -- targeted as the GUI build system (rgb_bus, gt911 modules). Check its
+  repository for the current license file. This project also depends
+  transitively on whatever license LVGL itself (the underlying C library)
+  is distributed under (MIT, at the time this was written).
+
+- **MicroPython** (github.com/micropython/micropython) -- MIT licensed.
+
+- **umqtt** (`umqtt.simple`/`umqtt.robust`, distributed as part of the
+  micropython-lib project) -- MIT licensed.
+
+- **ESP-IDF** (github.com/espressif/esp-idf) -- primarily Apache 2.0,
+  with some components under other licenses; see Espressif's own
+  licensing documentation for specifics.
+
+None of the above are redistributed as part of this repository -- they
+are fetched by build/build_firmware.sh at build time from their own
+upstream sources.

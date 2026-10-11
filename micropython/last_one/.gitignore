@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Firmware build workspace (created by build/build_firmware.sh, not checked in)
+tbgw-firmware-build/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+# Local overrides (e.g. real ThingsBoard tokens, broker credentials)
+config/*.local.json
+
+# Private reference material (prompts, protocol PDFs, wifi creds) -- not for the repo
+res/
+
+# Session working notes (not part of the deliverable)
+CLAUDE.md
+tbgw-firmware-build/
+.claude/
+
+# Per-deployment credentials; copy the corresponding *.example.json file locally.
+config/.json
+config/wifi.json
+config/tb_gateway.json
+config/mqtt.json
