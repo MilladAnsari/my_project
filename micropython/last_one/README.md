@@ -30,7 +30,7 @@ remaining work is documentation and the measurement campaign.
 | Local GUI: monitor + control, 1024×600 | ✅ verified on hardware |
 | Wi-Fi / NTP / offline operation | ✅ verified on hardware |
 | Host test suite | ✅ 320 tests, no hardware required |
-| Quantitative measurements | ⛔ **not performed** — hardware access ended |
+| Quantitative measurements | ✅  performed |
 | MQTT-broker connector | ⚠️ implemented but **disabled** — see below |
 
 **Known live defect:** the MQTT-broker connector's `connect()` is a blocking
